@@ -6,7 +6,6 @@ import json
 import os
 from flask import Flask
 
-# ========== ЗАГРУЗКА ПЕРЕМЕННЫХ ОКРУЖЕНИЯ ==========
 GROUP_ID = os.environ.get('GROUP_ID')
 TOKEN = os.environ.get('TOKEN')
 ADMIN_ID = os.environ.get('ADMIN_ID')
@@ -17,18 +16,16 @@ if not all([GROUP_ID, TOKEN, ADMIN_ID]):
 GROUP_ID = int(GROUP_ID)
 ADMIN_ID = int(ADMIN_ID)
 
-# ========== ВЕБ-СЕРВЕР ДЛЯ ПОДДЕРЖАНИЯ АКТИВНОСТИ ==========
 app = Flask(__name__)
 
 @app.route('/')
 def home():
     return "Бот для приёмной комиссии работает!", 200
 
-# ========== КОНСТАНТЫ (ФОТО) ==========
 PHOTO_OPEN_DAYS = "-237266527_457239044"
 PHOTO_ADMISSION_HOURS = "-237266527_457239045"
+PHOTO_WELCOME = "-237266527_457239053"  # Добавлен ID для приветственного сообщения
 
-# ========== СПЕЦИАЛЬНОСТИ ==========
 specialties = {
     1: {
         "title": "Информационные системы и программирование",
@@ -92,7 +89,6 @@ specialties = {
     }
 }
 
-# ========== ТЕСТ (КОРОТКИЕ КНОПКИ) ==========
 test_questions = [
     {"text": "Что для вас важнее в будущей работе?", "options": ["💰 Доход", "📈 Рост", "👨‍👩‍👧‍👦 Помощь", "🎨 Творчество"]},
     {"text": "Какие школьные предметы вам нравятся больше всего?", "options": ["📐 Математика", "💻 Информатика", "📖 Обществознание", "🍳 Технология"]},
@@ -103,7 +99,6 @@ test_questions = [
 
 user_states = {}
 
-# ========== ФУНКЦИИ ==========
 def send_message(user_id, text, keyboard=None):
     vk.messages.send(user_id=user_id, message=text, random_id=random.randint(1, 2**63-1), keyboard=keyboard.get_keyboard() if keyboard else None)
 
@@ -166,12 +161,10 @@ def send_next_question(user_id):
         send_message(user_id, f"🎉 Тест завершён!\n\n{result}", get_main_keyboard())
         del user_states[user_id]
 
-# ========== ПОДКЛЮЧЕНИЕ К VK ==========
 vk_session = vk_api.VkApi(token=TOKEN)
 vk = vk_session.get_api()
 longpoll = VkBotLongPoll(vk_session, GROUP_ID)
 
-# ========== ЗАПУСК ВЕБ-СЕРВЕРА В ОТДЕЛЬНОМ ПОТОКЕ ==========
 import threading
 def run_web():
     app.run(host='0.0.0.0', port=int(os.environ.get('PORT', 5000)))
@@ -181,7 +174,6 @@ web_thread.start()
 
 print("Бот запущен и работает 24/7...")
 
-# ========== ОСНОВНОЙ ЦИКЛ ==========
 for event in longpoll.listen():
     if event.type == VkBotEventType.MESSAGE_NEW and event.message.text:
         user_id = event.message.peer_id
@@ -202,13 +194,13 @@ for event in longpoll.listen():
         if msg == "📅 Дни открытых дверей":
             text = ("🗓️ Дни открытых дверей в Пермском институте РЭУ им. Г.В. Плеханова\n\n"
                     "📍 Адрес: 614070, г. Пермь, бульвар Гагарина, д. 57\n"
-                    "📅 Ближайшая дата: 27 апреля 2025 г., начало в 11:00\n\n"
+                    "📅 Ближайшая дата: 23 апреля 2026 г., начало в 18:00\n\n"
                     "Программа:\n"
                     "• Встреча с директором института\n"
                     "• Презентация специальностей СПО\n"
                     "• Экскурсия по учебным корпусам и лабораториям\n"
                     "• Ответы на вопросы приёмной комиссии\n\n"
-                    "❗ Регистрация: https://forms.yandex.ru/u/67d141a7e010db67db64bc4b/\n\n"
+                    "❗ Регистрация: https://forms.yandex.ru/u/696612da95add521ace1d211/\n\n"
                     "📞 Телефон единой справочной службы: 8-800-200-08-36")
             send_photo_with_text(user_id, PHOTO_OPEN_DAYS, text, get_main_keyboard())
 
@@ -232,7 +224,7 @@ for event in longpoll.listen():
             user_states[user_id] = "waiting_question"
 
         elif msg == "🔙 Назад":
-            send_message(user_id, "Главное меню:", get_main_keyboard())
+            send_photo_with_text(user_id, PHOTO_WELCOME, "Добро пожаловать! Я бот приёмной комиссии Пермского института РЭУ. Выберите действие:", get_main_keyboard())
 
         elif msg == "🔙 Назад к специальностям":
             send_message(user_id, "Выберите специальность:", get_specialties_keyboard())
@@ -248,4 +240,4 @@ for event in longpoll.listen():
             start_test(user_id)
 
         else:
-            send_message(user_id, "Добро пожаловать! Я бот приёмной комиссии Пермского института РЭУ. Выберите действие:", get_main_keyboard())
+            send_photo_with_text(user_id, PHOTO_WELCOME, "Добро пожаловать! Я бот приёмной комиссии Пермского института РЭУ. Выберите действие:", get_main_keyboard())
