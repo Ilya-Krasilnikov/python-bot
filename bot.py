@@ -222,7 +222,7 @@ for event in longpoll.listen():
                 "• Вс: выходной\n\n"
                 "📱 Мы в соцсетях:\n"
                 "• VK: https://vk.com/rea_perm\n"
-                "• Telegram: https://t.me/PlekhanovUniversity")
+                "• Telegram: https://t.me/PlekhanovUniverse")
         send_photo(user_id, PHOTO_ADMISSION_HOURS, text, main_kb)
 
     elif msg == "🎓 Специальности":
