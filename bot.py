@@ -4,6 +4,8 @@ from vk_api.keyboard import VkKeyboard, VkKeyboardColor
 import random
 import json
 import os
+import threading
+from flask import Flask
 
 GROUP_ID = int(os.environ.get('GROUP_ID', 237266527))
 TOKEN = os.environ.get('TOKEN')
@@ -321,27 +323,131 @@ specialties_bachelor = {
             "• разработчик рецептур\n"
             "• руководитель производства"
         ),
-        "photo_id": "--237266527_457239057"
+        "photo_id": "-237266527_457239057"
     }
 }
 
+spo_scales = ["Техника", "Знак", "Природа"]
 test_questions_spo = [
-    {"text": "Что для вас важнее в будущей работе?", "options": ["💰 Высокий доход", "📈 Карьерный рост", "👨‍👩‍👧‍👦 Помощь людям", "🎨 Творческое самовыражение"]},
-    {"text": "Какие школьные предметы вам нравятся больше всего?", "options": ["📐 Математика и физика", "💻 Информатика и ИКТ", "📖 Обществознание и право", "🍳 Технология (кулинария, труд)"]},
-    {"text": "Как вы относитесь к работе с большим объёмом цифр и данных?", "options": ["😍 Обожаю анализировать", "😐 Нейтрально", "😫 С трудом", "😱 Боюсь и не люблю"]},
-    {"text": "Вам больше нравится?", "options": ["🧑‍💻 Работа за компьютером", "🤝 Живое общение с людьми", "👩‍🍳 Создавать что-то руками", "📊 Планировать и анализировать"]},
-    {"text": "Какой рабочий коллектив вам ближе?", "options": ["🏢 Крупная стабильная компания", "👨‍💼 Небольшой дружный отдел", "🙋‍♂️ Работать самостоятельно", "🚀 Свой стартап"]}
+    {
+        "text": "В свободное время мне нравится...",
+        "options": [
+            "Разбираться в устройстве техники, чинить вещи.",
+            "Решать головоломки, задачи, играть в шахматы.",
+            "Ухаживать за растениями или животными.",
+            "Всё равно, чем заняться."
+        ],
+        "points": [[2,0,0],[0,2,0],[0,0,2],[0,0,0]]
+    },
+    {
+        "text": "Какой школьный предмет тебе кажется самым интересным?",
+        "options": [
+            "Физика, информатика, технология.",
+            "Математика, экономика.",
+            "Биология, география, химия.",
+            "Затрудняюсь ответить."
+        ],
+        "points": [[2,0,0],[0,2,0],[0,0,2],[0,0,0]]
+    },
+    {
+        "text": "Какая профессия кажется тебе наиболее привлекательной?",
+        "options": [
+            "Программист, инженер, механик.",
+            "Бухгалтер, экономист, аналитик.",
+            "Ветеринар, эколог, агроном.",
+            "Ещё не думал об этом."
+        ],
+        "points": [[2,0,0],[0,2,0],[0,0,2],[0,0,0]]
+    },
+    {
+        "text": "Что тебе больше нравится делать в команде?",
+        "options": [
+            "Создавать или налаживать работу устройства/сервиса.",
+            "Планировать бюджет или анализировать данные.",
+            "Помогать коллегам советами по моей теме.",
+            "Ничего из перечисленного."
+        ],
+        "points": [[2,0,0],[0,2,0],[0,0,2],[0,0,0]]
+    },
+    {
+        "text": "Как ты относишься к работе с большим объёмом цифр и данных?",
+        "options": [
+            "Мне это не очень интересно, я больше по практике.",
+            "Люблю анализировать и находить закономерности.",
+            "Это не моё, я предпочитаю живое общение.",
+            "Без разницы, всё равно."
+        ],
+        "points": [[2,0,0],[0,2,0],[0,0,2],[0,0,0]]
+    }
 ]
 
+bachelor_scales = ["Информатика", "Управление", "Экономика", "Творчество"]
 test_questions_bachelor = [
-    {"text": "Какая сфера деятельности вас привлекает больше всего?", "options": ["💰 Финансы и аналитика", "🧑‍💼 Управление и менеджмент", "🛒 Торговля и логистика", "💻 Информационные технологии"]},
-    {"text": "Что для вас важнее при выборе профессии?", "options": ["🏦 Стабильность и высокая зарплата", "🚀 Возможность карьерного роста", "🤝 Работа в команде", "🎨 Креатив и нестандартные задачи"]},
-    {"text": "Какие задачи вам кажутся наиболее интересными?", "options": ["📈 Анализ данных и прогнозирование", "👥 Управление проектами и людьми", "🤝 Ведение переговоров и продажи", "🖥️ Разработка и внедрение систем"]},
-    {"text": "Какой стиль работы вам ближе?", "options": ["📊 Кабинетный, с документами", "🗣️ Активный, много общения", "🔬 Исследовательский, поиск решений", "👨‍💻 Работа с компьютером и кодом"]},
-    {"text": "Выберите ключевое качество успешного специалиста", "options": ["🧮 Аналитический склад ума", "🎯 Лидерские качества", "💬 Коммуникабельность", "⚙️ Техническое мышление"]}
+    {
+        "text": "Какой вид деятельности тебя привлекает больше всего?",
+        "options": [
+            "Разработка и внедрение IT-решений, работа с кодом.",
+            "Управление проектами, командой, организация процессов.",
+            "Финансовый анализ, ведение бюджета, бухгалтерия.",
+            "Создание нового продукта, дизайн, маркетинг."
+        ],
+        "points": [[2,0,0,0],[0,2,0,0],[0,0,2,0],[0,0,0,2]]
+    },
+    {
+        "text": "Какое качество ты считаешь самым важным для успеха?",
+        "options": [
+            "Технический склад ума и умение решать сложные задачи.",
+            "Лидерство, коммуникабельность и ответственность.",
+            "Внимательность к деталям и аккуратность.",
+            "Креативность и умение находить нестандартные решения."
+        ],
+        "points": [[2,0,0,0],[0,2,0,0],[0,0,2,0],[0,0,0,2]]
+    },
+    {
+        "text": "Какую роль ты обычно предпочитаешь в групповой работе?",
+        "options": [
+            "Технического эксперта, генератора идей.",
+            "Лидера, организатора, который распределяет задачи.",
+            "Исполнителя, который чётко следует плану.",
+            "Креативного стратега, отвечающего за образ продукта."
+        ],
+        "points": [[2,0,0,0],[0,2,0,0],[0,0,2,0],[0,0,0,2]]
+    },
+    {
+        "text": "Что для тебя важнее в будущей работе?",
+        "options": [
+            "Интересные технологичные задачи.",
+            "Возможность влиять на процессы и карьерный рост.",
+            "Стабильность, чёткие обязанности и высокая зарплата.",
+            "Творческая атмосфера и свобода действий."
+        ],
+        "points": [[2,0,0,0],[0,2,0,0],[0,0,2,0],[0,0,0,2]]
+    },
+    {
+        "text": "Твой идеальный рабочий день — это...",
+        "options": [
+            "Решение сложной технической проблемы в одиночку или в команде.",
+            "Проведение встреч, обсуждение стратегии, планирование.",
+            "Работа с отчётами, цифрами, финансовыми документами.",
+            "Мозговой штурм, создание новых концепций, общение с клиентами."
+        ],
+        "points": [[2,0,0,0],[0,2,0,0],[0,0,2,0],[0,0,0,2]]
+    }
 ]
 
 user_states = {}
+
+app = Flask(__name__)
+
+@app.route('/')
+def healthcheck():
+    return "Бот работает!", 200
+
+def run_web():
+    port = int(os.environ.get('PORT', 8080))
+    app.run(host='0.0.0.0', port=port)
+
+threading.Thread(target=run_web, daemon=True).start()
 
 def send_message(user_id, text, keyboard=None):
     vk.messages.send(user_id=user_id, message=text, random_id=random.randint(1, 2**63-1), keyboard=keyboard.get_keyboard() if keyboard else None)
@@ -357,11 +463,19 @@ def get_main_keyboard():
     kb.add_button('📅 Дни открытых дверей', color=VkKeyboardColor.PRIMARY)
     kb.add_button('🕒 Работа приёмной комиссии', color=VkKeyboardColor.PRIMARY)
     kb.add_line()
-    kb.add_button('📚 СПО (9-11 классы)', color=VkKeyboardColor.POSITIVE)
-    kb.add_button('🎓 Бакалавриат', color=VkKeyboardColor.POSITIVE)
+    kb.add_button('🎓 Специальности вуза', color=VkKeyboardColor.POSITIVE)
+    kb.add_button('❓ Помощь', color=VkKeyboardColor.SECONDARY)
+    return kb
+
+def get_spec_choice_keyboard():
+    kb = VkKeyboard(one_time=True)
+    kb.add_button('📚 СПО (9-11 классы)', color=VkKeyboardColor.SECONDARY)
+    kb.add_line()
+    kb.add_button('🎓 Бакалавриат', color=VkKeyboardColor.SECONDARY)
     kb.add_line()
     kb.add_button('📖 Магистратура (скоро)', color=VkKeyboardColor.SECONDARY)
-    kb.add_button('❓ Помощь', color=VkKeyboardColor.SECONDARY)
+    kb.add_line()
+    kb.add_button('🔙 Назад', color=VkKeyboardColor.NEGATIVE)
     return kb
 
 def get_spo_keyboard():
@@ -369,7 +483,7 @@ def get_spo_keyboard():
     for spec in specialties_spo.values():
         kb.add_button(spec['short'], color=VkKeyboardColor.SECONDARY)
         kb.add_line()
-    kb.add_button('🔙 Назад', color=VkKeyboardColor.NEGATIVE)
+    kb.add_button('🔙 Назад к выбору', color=VkKeyboardColor.NEGATIVE)
     return kb
 
 def get_bachelor_keyboard():
@@ -377,7 +491,7 @@ def get_bachelor_keyboard():
     for spec in specialties_bachelor.values():
         kb.add_button(spec['short'], color=VkKeyboardColor.SECONDARY)
         kb.add_line()
-    kb.add_button('🔙 Назад', color=VkKeyboardColor.NEGATIVE)
+    kb.add_button('🔙 Назад к выбору', color=VkKeyboardColor.NEGATIVE)
     return kb
 
 def get_spec_actions_keyboard(spec_id, level):
@@ -409,26 +523,34 @@ def send_next_question(user_id):
     else:
         answers = state["answers"]
         if level == "spo":
-            if any("💻 Информатика" in a for a in answers):
-                result = "Рекомендуем специальности СПО: Информационные системы и программирование."
-            elif any("🍳 Технология" in a for a in answers):
-                result = "Рекомендуем специальности СПО: Поварское и кондитерское дело."
-            elif any("📐 Математика" in a or "📊 Анализировать" in a for a in answers):
-                result = "Рекомендуем специальности СПО: Экономика, Банковское дело или Страховое дело."
+            points = [0,0,0]
+            for i, ans_idx in enumerate(answers):
+                pts = test_questions_spo[i]["points"][ans_idx]
+                for j in range(3):
+                    points[j] += pts[j]
+            max_idx = points.index(max(points))
+            if max_idx == 0:
+                result = "✨ Рекомендуем: Информационные системы и программирование (СПО)."
+            elif max_idx == 1:
+                result = "✨ Рекомендуем: Экономика и бухучёт, Банковское дело или Страховое дело (СПО)."
             else:
-                result = "Все специальности СПО могут вам подойти. Приходите на День открытых дверей!"
+                result = "✨ Рекомендуем: Поварское и кондитерское дело (СПО)."
         else:
-            if any("💰 Финансы" in a for a in answers) or any("📈 Анализ" in a for a in answers):
-                result = "Рекомендуем направления бакалавриата: Экономика или Прикладная информатика."
-            elif any("🧑‍💼 Управление" in a for a in answers) or any("👥 Управление проектами" in a for a in answers):
-                result = "Рекомендуем направление: Менеджмент."
-            elif any("🛒 Торговля" in a for a in answers) or any("🤝 Ведение переговоров" in a for a in answers):
-                result = "Рекомендуем направления: Торговое дело или Товароведение."
-            elif any("👩‍🍳 Создавать" in a for a in answers) or any("🍳 Технология" in a for a in answers):
-                result = "Рекомендуем направление: Технология продукции и организация общественного питания."
+            points = [0,0,0,0]
+            for i, ans_idx in enumerate(answers):
+                pts = test_questions_bachelor[i]["points"][ans_idx]
+                for j in range(4):
+                    points[j] += pts[j]
+            max_idx = points.index(max(points))
+            if max_idx == 0:
+                result = "🚀 Рекомендуем: Прикладная информатика (бакалавриат)."
+            elif max_idx == 1:
+                result = "💼 Рекомендуем: Менеджмент (бакалавриат)."
+            elif max_idx == 2:
+                result = "📊 Рекомендуем: Экономика, Торговое дело или Товароведение (бакалавриат)."
             else:
-                result = "Все направления бакалавриата могут вас заинтересовать. Приходите на День открытых дверей!"
-        send_message(user_id, f"🎉 Тест завершён!\n\n{result}", get_main_keyboard())
+                result = "🎨 Рекомендуем: Технология продукции и организация общественного питания (бакалавриат)."
+        send_message(user_id, f"🎉 Тест завершён!\n\n{result}\n\nВыберите специальность в главном меню.", get_main_keyboard())
         del user_states[user_id]
 
 vk_session = vk_api.VkApi(token=TOKEN)
@@ -443,7 +565,15 @@ for event in longpoll.listen():
 
         if user_id in user_states and "step" in user_states[user_id]:
             state = user_states[user_id]
-            state["answers"].append(msg)
+            step = state["step"] - 1
+            level = state["level"]
+            questions = test_questions_spo if level == "spo" else test_questions_bachelor
+            try:
+                ans_idx = questions[step]["options"].index(msg)
+                state["answers"].append(ans_idx)
+            except ValueError:
+                send_next_question(user_id)
+                continue
             send_next_question(user_id)
             continue
 
@@ -481,6 +611,19 @@ for event in longpoll.listen():
                     "• Telegram: https://t.me/rea_perm")
             send_photo_with_text(user_id, PHOTO_ADMISSION_HOURS, text, get_main_keyboard())
 
+        elif msg == "🎓 Специальности вуза":
+            send_message(user_id, "Выберите уровень образования:", get_spec_choice_keyboard())
+
+        elif msg == "❓ Помощь":
+            send_message(user_id, "Напишите ваш вопрос, я передам администратору. Ответ придёт в ближайшее время.")
+            user_states[user_id] = "waiting_question"
+
+        elif msg == "🔙 Назад":
+            send_photo_with_text(user_id, PHOTO_WELCOME, "Добро пожаловать! Я бот приёмной комиссии Пермского института (филиала) РЭУ имени Г. В. Плеханова. С чем вам помочь сегодня?", get_main_keyboard())
+
+        elif msg == "🔙 Назад к выбору":
+            send_message(user_id, "Выберите уровень образования:", get_spec_choice_keyboard())
+
         elif msg == "📚 СПО (9-11 классы)":
             send_message(user_id, "Выберите специальность СПО:", get_spo_keyboard())
 
@@ -490,15 +633,8 @@ for event in longpoll.listen():
         elif msg == "📖 Магистратура (скоро)":
             send_message(user_id, "🔜 Информация о программах магистратуры появится позже. Следите за обновлениями!", get_main_keyboard())
 
-        elif msg == "❓ Помощь":
-            send_message(user_id, "Напишите ваш вопрос, и я передам его администратору. Ответ придёт в ближайшее время.")
-            user_states[user_id] = "waiting_question"
-
-        elif msg == "🔙 Назад":
-            send_photo_with_text(user_id, PHOTO_WELCOME, "Добро пожаловать! Я бот приёмной комиссии Пермского института (филиала) РЭУ имени Г. В. Плеханова. С чем вам помочь сегодня?", get_main_keyboard())
-
         elif msg == "🔙 Назад к списку":
-            send_message(user_id, "Выберите уровень образования:", get_main_keyboard())
+            send_message(user_id, "Выберите уровень образования:", get_spec_choice_keyboard())
 
         elif any(msg == spec['short'] for spec in specialties_spo.values()):
             spec = next(spec for spec in specialties_spo.values() if spec['short'] == msg)
