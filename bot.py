@@ -119,6 +119,7 @@ specialties_magistracy = {
     }
 }
 
+# Тесты (каждый вопрос имеет 4 варианта, все варианты укладываются в 40 символов)
 test_spo = [
     ("🧑‍💻 Что вы любите делать в свободное время?", ["🔧 Ремонтировать технику", "📊 Изучать новости бизнеса", "🍳 Экспериментировать с рецептами", "🛍️ Искать выгодные предложения"]),
     ("📚 Какие темы книг вас привлекают?", ["💻 Компьютерные технологии", "💰 Экономика и финансы", "🍝 Кулинарное искусство", "🛒 Маркетинг и продажи"]),
@@ -136,11 +137,11 @@ test_bachelor = [
 ]
 
 test_magistracy = [
-    ("🧠 Какая профессиональная сфера вас больше всего привлекает?", ["📊 Анализ данных и экономика", "👥 Управление и стратегия", "🛒 Развитие бизнеса", "🤖 Искусственный интеллект"]),
-    ("💡 Что вас больше всего мотивирует в работе?", ["💰 Поиск финансовых закономерностей", "🏆 Достижение стратегических целей", "📈 Рост рыночных показателей", "🚀 Создание инновационных продуктов"]),
-    ("🔧 Какую роль вы предпочитаете в команде?", ["📐 Исследователя-аналитика", "🧭 Стратегического лидера", "🤝 Переговорщика и посредника", "💻 Архитектора IT-решений"]),
-    ("🏢 Какой результат для вас важнее всего?", ["📉 Точный финансовый прогноз", "🗺️ Эффективная стратегия", "🤝 Успешная сделка", "🏆 Рабочий прототип"]),
-    ("🎯 Что для вас самое интересное в магистратуре?", ["🧮 Углубление в экономические модели", "👔 Получение управленческих навыков", "🛠️ Изучение торговых технологий", "⚙️ Работа с ИИ и Big Data"]),
+    ("🧠 Какая профессиональная сфера вас привлекает?", ["📊 Анализ данных и экономика", "👥 Управление и стратегия", "🛒 Развитие бизнеса", "🤖 Искусственный интеллект"]),
+    ("💡 Что вас мотивирует в работе?", ["💰 Поиск финансовых закономерностей", "🏆 Достижение стратегических целей", "📈 Рост рыночных показателей", "🚀 Создание инноваций"]),
+    ("🔧 Какую роль предпочитаете в команде?", ["📐 Исследователя-аналитика", "🧭 Стратегического лидера", "🤝 Переговорщика", "💻 Архитектора IT-решений"]),
+    ("🏢 Какой результат для вас важнее?", ["📉 Точный финансовый прогноз", "🗺️ Эффективная стратегия", "🤝 Успешная сделка", "🏆 Рабочий прототип"]),
+    ("🎯 Что интересно в магистратуре?", ["🧮 Экономические модели", "👔 Управленческие навыки", "🛠️ Торговые технологии", "⚙️ ИИ и Big Data"]),
 ]
 
 user_states = {}
@@ -190,6 +191,7 @@ for event in longpoll.listen():
     user_id = event.message.peer_id
     msg = event.message.text.strip()
 
+    # ---- Обработка теста ----
     if user_id in user_states and "test" in user_states[user_id]:
         state = user_states[user_id]["test"]
         step = state["step"]
@@ -203,30 +205,21 @@ for event in longpoll.listen():
                     q_text2, opts2 = questions[state["step"]]
                     send(user_id, q_text2, make_keyboard(opts2))
                 else:
-                    spo_scores = [0,0,0,0]
-                    bachelor_scores = [0,0,0,0]
-                    magistracy_scores = [0,0,0,0]
+                    scores = [0,0,0,0]
                     for ans in state["answers"]:
-                        if state["level"] == "spo":
-                            spo_scores[ans] += 1
-                        elif state["level"] == "bachelor":
-                            bachelor_scores[ans] += 1
-                        else:
-                            magistracy_scores[ans] += 1
+                        scores[ans] += 1
+                    max_idx = scores.index(max(scores))
                     if state["level"] == "spo":
-                        max_idx = spo_scores.index(max(spo_scores))
                         if max_idx == 0: rec = "Информационные системы и программирование (СПО)"
                         elif max_idx == 1: rec = "Экономика и бухучёт, Банковское дело или Страховое дело (СПО)"
                         elif max_idx == 2: rec = "Поварское и кондитерское дело (СПО)"
                         else: rec = "Торговое дело (СПО)"
                     elif state["level"] == "bachelor":
-                        max_idx = bachelor_scores.index(max(bachelor_scores))
                         if max_idx == 0: rec = "Прикладная информатика (бакалавриат)"
                         elif max_idx == 1: rec = "Менеджмент (бакалавриат)"
                         elif max_idx == 2: rec = "Экономика (бакалавриат)"
                         else: rec = "Торговое дело или Товароведение (бакалавриат)"
-                    else:
-                        max_idx = magistracy_scores.index(max(magistracy_scores))
+                    else:  # magistracy
                         if max_idx == 0: rec = "Экономика (магистратура)"
                         elif max_idx == 1: rec = "Менеджмент (магистратура)"
                         elif max_idx == 2: rec = "Торговое дело (магистратура)"
@@ -237,12 +230,14 @@ for event in longpoll.listen():
                 send(user_id, q_text, make_keyboard(opts))
         continue
 
+    # ---- Ожидание вопроса администратору ----
     if user_states.get(user_id) == "waiting_question":
         vk.messages.send(user_id=ADMIN_ID, message=f"Вопрос от [id{user_id}|]:\n{msg}", random_id=random.randint(1, 2**63-1))
         send(user_id, "Вопрос передан администратору. Ответ придёт в ближайшее время.", main_kb)
         del user_states[user_id]
         continue
 
+    # ---- Главное меню ----
     if msg == "📅 Дни открытых дверей":
         text = ("🗓️ Дни открытых дверей в Пермском институте (филиале) РЭУ им. Г. В. Плеханова\n\n📍 Адрес: 614070, г. Пермь, б-р Гагарина, д. 57\n\n📅 23 апреля 2026 г., 18:00\n\n❗ Регистрация: https://forms.yandex.ru/u/696612da95add521ace1d211/\n\n📞 Телефон: +7 (342) 263-26-75")
         send_photo(user_id, PHOTO_OPEN_DAYS, text, main_kb)
@@ -275,6 +270,7 @@ for event in longpoll.listen():
             del user_states[user_id]
         send_main_menu(user_id)
 
+    # ---- Выбор уровня ----
     elif msg == "📚 СПО (9-11)":
         buttons = [spec["short"] for spec in specialties_spo.values()] + ["🔙 Назад"]
         kb = make_keyboard(buttons)
@@ -293,6 +289,7 @@ for event in longpoll.listen():
         send(user_id, "Выберите программу магистратуры:", kb)
         user_states[user_id] = {"menu": "magistracy_list"}
 
+    # ---- Выбор специальности СПО ----
     elif user_states.get(user_id, {}).get("menu") == "spo_list" and msg != "🔙 Назад":
         for spec in specialties_spo.values():
             if spec["short"] == msg:
@@ -303,6 +300,7 @@ for event in longpoll.listen():
                 user_states[user_id] = {"selected_spec": spec, "level": "spo", "menu": "spec_action"}
                 break
 
+    # ---- Выбор специальности бакалавриата ----
     elif user_states.get(user_id, {}).get("menu") == "bachelor_list" and msg != "🔙 Назад":
         for spec in specialties_bachelor.values():
             if spec["short"] == msg:
@@ -313,6 +311,7 @@ for event in longpoll.listen():
                 user_states[user_id] = {"selected_spec": spec, "level": "bachelor", "menu": "spec_action"}
                 break
 
+    # ---- Выбор программы магистратуры ----
     elif user_states.get(user_id, {}).get("menu") == "magistracy_list" and msg != "🔙 Назад":
         for prog in specialties_magistracy.values():
             if prog["short"] == msg:
@@ -323,6 +322,7 @@ for event in longpoll.listen():
                 user_states[user_id] = {"selected_prog": prog, "level": "magistracy", "menu": "spec_action"}
                 break
 
+    # ---- Действия после выбора специальности ----
     elif user_states.get(user_id, {}).get("menu") == "spec_action":
         if msg == "📝 Пройти профтест":
             level = user_states[user_id]["level"]
@@ -341,22 +341,22 @@ for event in longpoll.listen():
             q_text, opts = questions[0]
             send(user_id, q_text, make_keyboard(opts))
         elif msg == "🔙 Назад":
-            if user_states[user_id]["level"] in ("spo", "bachelor"):
-                if user_states[user_id]["level"] == "spo":
-                    buttons = [spec["short"] for spec in specialties_spo.values()] + ["🔙 Назад"]
-                    kb = make_keyboard(buttons)
-                    send(user_id, "Выберите специальность СПО:", kb)
-                    user_states[user_id] = {"menu": "spo_list"}
-                else:
-                    buttons = [spec["short"] for spec in specialties_bachelor.values()] + ["🔙 Назад"]
-                    kb = make_keyboard(buttons)
-                    send(user_id, "Выберите направление бакалавриата:", kb)
-                    user_states[user_id] = {"menu": "bachelor_list"}
+            if user_states[user_id]["level"] == "spo":
+                buttons = [spec["short"] for spec in specialties_spo.values()] + ["🔙 Назад"]
+                kb = make_keyboard(buttons)
+                send(user_id, "Выберите специальность СПО:", kb)
+                user_states[user_id] = {"menu": "spo_list"}
+            elif user_states[user_id]["level"] == "bachelor":
+                buttons = [spec["short"] for spec in specialties_bachelor.values()] + ["🔙 Назад"]
+                kb = make_keyboard(buttons)
+                send(user_id, "Выберите направление бакалавриата:", kb)
+                user_states[user_id] = {"menu": "bachelor_list"}
             else:
                 buttons = [spec["short"] for spec in specialties_magistracy.values()] + ["🔙 Назад"]
                 kb = make_keyboard(buttons)
                 send(user_id, "Выберите программу магистратуры:", kb)
                 user_states[user_id] = {"menu": "magistracy_list"}
 
+    # ---- Неизвестная команда ----
     else:
         send_main_menu(user_id)
